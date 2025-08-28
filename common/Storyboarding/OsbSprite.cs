@@ -1,9 +1,9 @@
-﻿using BrewLib.Graphics.Drawables;
-using OpenTK;
+﻿using OpenTK;
 using StorybrewCommon.Mapset;
 using StorybrewCommon.Storyboarding.Commands;
 using StorybrewCommon.Storyboarding.CommandValues;
 using StorybrewCommon.Storyboarding.Display;
+using StorybrewCommon.Storyboarding.Util;
 using StorybrewCommon.Util;
 
 namespace StorybrewCommon.Storyboarding
@@ -15,11 +15,10 @@ namespace StorybrewCommon.Storyboarding
         private readonly List<ICommand> commands = new List<ICommand>();
         private CommandGroup currentCommandGroup;
         public bool InGroup => currentCommandGroup != null;
-        public bool HasTrigger;
+        public bool HasTrigger { get; private set; }
 
         /// <summary>
         /// If this sprite contains more than CommandSplitThreshold commands, they will be split between multiple sprites.
-        /// Does not apply when the sprite has triggers. No currently implemented.
         /// </summary>
         public int CommandSplitThreshold = 0;
 
@@ -76,6 +75,7 @@ namespace StorybrewCommon.Storyboarding
 
         public bool HasRotateCommands => rotateTimeline.HasCommands;
         public bool HasScalingCommands => scaleTimeline.HasCommands || scaleVecTimeline.HasCommands;
+        public bool HasScaleVecCommands => scaleVecTimeline.HasCommands;
         public bool HasMoveXYCommands => moveXTimeline.HasCommands || moveYTimeline.HasCommands;
 
         private double commandsStartTime = double.MaxValue;
@@ -136,33 +136,33 @@ namespace StorybrewCommon.Storyboarding
             {
                 if (fadeTimeline.HasCommands)
                 {
-                    var start = fadeTimeline.StartResult;
-                    if (start.StartValue == 0)
-                        displayStartTime = Math.Max(displayStartTime, start.StartTime);
+                    bool isZero(CommandDecimal value) => value == .0;
+                    bool isNoOp(CommandDecimal startValue, CommandDecimal endValue) => startValue == .0 && endValue == .0;
 
-                    var end = fadeTimeline.EndResult;
-                    if (end.EndValue == 0)
-                        displayEndTime = Math.Min(displayEndTime, end.EndTime);
+                    if (fadeTimeline.FindStartEdge(isZero, isNoOp, out var startEdge))
+                        displayStartTime = Math.Max(displayStartTime, startEdge);
+                    if (fadeTimeline.FindEndEdge(isZero, isNoOp, out var endEdge))
+                        displayEndTime = Math.Min(displayEndTime, endEdge);
                 }
                 if (scaleTimeline.HasCommands)
                 {
-                    var start = scaleTimeline.StartResult;
-                    if (start.StartValue == 0)
-                        displayStartTime = Math.Max(displayStartTime, start.StartTime);
+                    bool isZero(CommandDecimal value) => value == .0;
+                    bool isNoOp(CommandDecimal startValue, CommandDecimal endValue) => startValue == .0 && endValue == .0;
 
-                    var end = scaleTimeline.EndResult;
-                    if (end.EndValue == 0)
-                        displayEndTime = Math.Min(displayEndTime, end.EndTime);
+                    if (scaleTimeline.FindStartEdge(isZero, isNoOp, out var startEdge))
+                        displayStartTime = Math.Max(displayStartTime, startEdge);
+                    if (scaleTimeline.FindEndEdge(isZero, isNoOp, out var endEdge))
+                        displayEndTime = Math.Min(displayEndTime, endEdge);
                 }
                 if (scaleVecTimeline.HasCommands)
                 {
-                    var start = scaleVecTimeline.StartResult;
-                    if (start.StartValue.X <= 0 || start.StartValue.Y <= 0)
-                        displayStartTime = Math.Max(displayStartTime, start.StartTime);
+                    bool isZero(CommandScale value) => value.X == .0 || value.Y == .0;
+                    bool isNoOp(CommandScale startValue, CommandScale endValue) => startValue.X == .0 && endValue.X == .0 || startValue.Y == .0 && endValue.Y == .0;
 
-                    var end = scaleVecTimeline.EndResult;
-                    if (end.EndValue.X <= 0 || end.EndValue.Y <= 0)
-                        displayEndTime = Math.Min(displayEndTime, end.EndTime);
+                    if (scaleVecTimeline.FindStartEdge(isZero, isNoOp, out var startEdge))
+                        displayStartTime = Math.Max(displayStartTime, startEdge);
+                    if (scaleVecTimeline.FindEndEdge(isZero, isNoOp, out var endEdge))
+                        displayEndTime = Math.Min(displayEndTime, endEdge);
                 }
             }
             displayStartTime = Math.Max(displayStartTime, commandsStartTime);
@@ -237,6 +237,7 @@ namespace StorybrewCommon.Storyboarding
         public void ColorHsb(double time, double hue, double saturation, double brightness) => ColorHsb(OsbEasing.None, time, time, hue, saturation, brightness, hue, saturation, brightness);
 
         public void Parameter(OsbEasing easing, double startTime, double endTime, CommandParameter parameter) => addCommand(new ParameterCommand(easing, startTime, endTime, parameter));
+        public void Parameter(double startTime, double endTime, CommandParameter parameter) => Parameter(OsbEasing.None, startTime, endTime, parameter);
         public void FlipH(double startTime, double endTime) => Parameter(OsbEasing.None, startTime, endTime, CommandParameter.FlipHorizontal);
         public void FlipH(double time) => FlipH(time, time);
         public void FlipV(double startTime, double endTime) => Parameter(OsbEasing.None, startTime, endTime, CommandParameter.FlipVertical);
@@ -287,36 +288,36 @@ namespace StorybrewCommon.Storyboarding
             clearStartEndTimes();
         }
 
-        public void AddCommand(ICommand command)
+        public void AddCommand(ICommand command, double offset = 0)
         {
             if (command is ColorCommand colorCommand)
-                Color(colorCommand.Easing, colorCommand.StartTime, colorCommand.EndTime, colorCommand.StartValue, colorCommand.EndValue);
+                Color(colorCommand.Easing, colorCommand.StartTime + offset, colorCommand.EndTime + offset, colorCommand.StartValue, colorCommand.EndValue);
             else if (command is FadeCommand fadeCommand)
-                Fade(fadeCommand.Easing, fadeCommand.StartTime, fadeCommand.EndTime, fadeCommand.StartValue, fadeCommand.EndValue);
+                Fade(fadeCommand.Easing, fadeCommand.StartTime + offset, fadeCommand.EndTime + offset, fadeCommand.StartValue, fadeCommand.EndValue);
             else if (command is ScaleCommand scaleCommand)
-                Scale(scaleCommand.Easing, scaleCommand.StartTime, scaleCommand.EndTime, scaleCommand.StartValue, scaleCommand.EndValue);
+                Scale(scaleCommand.Easing, scaleCommand.StartTime + offset, scaleCommand.EndTime + offset, scaleCommand.StartValue, scaleCommand.EndValue);
             else if (command is VScaleCommand vScaleCommand)
-                ScaleVec(vScaleCommand.Easing, vScaleCommand.StartTime, vScaleCommand.EndTime, vScaleCommand.StartValue, vScaleCommand.EndValue);
+                ScaleVec(vScaleCommand.Easing, vScaleCommand.StartTime + offset, vScaleCommand.EndTime + offset, vScaleCommand.StartValue, vScaleCommand.EndValue);
             else if (command is ParameterCommand parameterCommand)
-                Parameter(parameterCommand.Easing, parameterCommand.StartTime, parameterCommand.EndTime, parameterCommand.StartValue);
+                Parameter(parameterCommand.Easing, parameterCommand.StartTime + offset, parameterCommand.EndTime + offset, parameterCommand.StartValue);
             else if (command is MoveCommand moveCommand)
-                Move(moveCommand.Easing, moveCommand.StartTime, moveCommand.EndTime, moveCommand.StartValue, moveCommand.EndValue);
+                Move(moveCommand.Easing, moveCommand.StartTime + offset, moveCommand.EndTime + offset, moveCommand.StartValue, moveCommand.EndValue);
             else if (command is MoveXCommand moveXCommand)
-                MoveX(moveXCommand.Easing, moveXCommand.StartTime, moveXCommand.EndTime, moveXCommand.StartValue, moveXCommand.EndValue);
+                MoveX(moveXCommand.Easing, moveXCommand.StartTime + offset, moveXCommand.EndTime + offset, moveXCommand.StartValue, moveXCommand.EndValue);
             else if (command is MoveYCommand moveYCommand)
-                MoveY(moveYCommand.Easing, moveYCommand.StartTime, moveYCommand.EndTime, moveYCommand.StartValue, moveYCommand.EndValue);
+                MoveY(moveYCommand.Easing, moveYCommand.StartTime + offset, moveYCommand.EndTime + offset, moveYCommand.StartValue, moveYCommand.EndValue);
             else if (command is RotateCommand rotateCommand)
-                Rotate(rotateCommand.Easing, rotateCommand.StartTime, rotateCommand.EndTime, rotateCommand.StartValue, rotateCommand.EndValue);
+                Rotate(rotateCommand.Easing, rotateCommand.StartTime + offset, rotateCommand.EndTime + offset, rotateCommand.StartValue, rotateCommand.EndValue);
             else if (command is LoopCommand loopCommand)
             {
-                StartLoopGroup(loopCommand.StartTime, loopCommand.LoopCount);
+                StartLoopGroup(loopCommand.StartTime + offset, loopCommand.LoopCount);
                 foreach (var cmd in loopCommand.Commands)
                     AddCommand(cmd);
                 EndGroup();
             }
             else if (command is TriggerCommand triggerCommand)
             {
-                StartTriggerGroup(triggerCommand.TriggerName, triggerCommand.StartTime, triggerCommand.EndTime, triggerCommand.Group);
+                StartTriggerGroup(triggerCommand.TriggerName, triggerCommand.StartTime + offset, triggerCommand.EndTime + offset, triggerCommand.Group);
                 foreach (var cmd in triggerCommand.Commands)
                     AddCommand(cmd);
                 EndGroup();
@@ -392,15 +393,25 @@ namespace StorybrewCommon.Storyboarding
         #endregion
 
         public bool IsActive(double time) => CommandsStartTime <= time && time <= CommandsEndTime;
-        public bool ShouldBeActive(double time) => DisplayStartTime <= time && time <= DisplayEndTime;
+        public bool InDisplayInterval(double time) => DisplayStartTime <= time && time <= DisplayEndTime;
 
         public override double StartTime => CommandsStartTime;
         public override double EndTime => CommandsEndTime;
 
-        public override void WriteOsb(TextWriter writer, ExportSettings exportSettings, OsbLayer layer, StoryboardTransform transform)
+        public override void WriteOsb(TextWriter writer, ExportSettings exportSettings, OsbLayer layer, StoryboardTransform transform, CancellationToken token = default)
         {
             if (CommandCount == 0)
                 return;
+
+            if (exportSettings.OptimiseSprites && CommandSplitThreshold > 0 && CommandCount > CommandSplitThreshold)
+            {
+                var splitSettings = exportSettings.Clone();
+                splitSettings.OptimiseSprites = false;
+
+                foreach (var sprite in CommandSplitter.Split(this, CommandSplitThreshold, token))
+                    sprite.WriteOsb(writer, splitSettings, layer, transform, token);
+                return;
+            }
 
             WriteHeader(writer, exportSettings, layer, transform);
             foreach (var command in Commands)

@@ -37,8 +37,8 @@ namespace StorybrewEditor.Storyboarding
             if (frameStats != null)
             {
                 frameStats.SpriteCount++;
-                if (!sprite.ShouldBeActive(time))
-                    frameStats.ProlongedSpriteCount++;
+                if (!sprite.InDisplayInterval(time))
+                    frameStats.ProlongedCommands += sprite.CommandCost;
                 frameStats.CommandCount += sprite.CommandCost;
 
                 if (sprite.HasOverlappedCommands)
@@ -58,7 +58,7 @@ namespace StorybrewEditor.Storyboarding
                 }
             }
 
-            var forceVisible = !sprite.ShouldBeActive(time) && Keyboard.GetState().IsKeyDown(Key.AltLeft);
+            var forceVisible = !sprite.InDisplayInterval(time) && Keyboard.GetState().IsKeyDown(Key.AltLeft);
 
             var fade = sprite.OpacityAt(time);
             if (forceVisible) fade = .5f;

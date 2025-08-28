@@ -473,7 +473,7 @@ namespace StorybrewEditor.Storyboarding
 
         private static readonly string[] netRuntimeAssemblies =
             Directory.GetFiles(GetRuntimeRefDirectory(), "*.dll")
-            .Where(x =>  !Path.GetFileName(x).EndsWith(".Native.dll")).ToArray();
+            .Where(x => !Path.GetFileName(x).EndsWith(".Native.dll")).ToArray();
 
         private static readonly List<string> defaultAssemblies = new List<string>()
         {
@@ -901,6 +901,7 @@ namespace StorybrewEditor.Storyboarding
                 localLayers = new List<EditorStoryboardLayer>(LayerManager.FindLayers(l => l.Visible));
             });
 
+            var stopwatch = Stopwatch.StartNew();
             var usesOverlayLayer = localLayers.Any(l => l.OsbLayer == OsbLayer.Overlay);
 
             if (!string.IsNullOrEmpty(osuPath))
@@ -975,6 +976,8 @@ namespace StorybrewEditor.Storyboarding
                     stream.Commit();
                 }
             }
+
+            Debug.WriteLine($"Exported {localLayers.Count} layers in {stopwatch.ElapsedMilliseconds}ms");
         }
 
         private static void cleanupFolder(string path, string searchPattern)

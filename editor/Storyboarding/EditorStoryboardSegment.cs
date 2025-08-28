@@ -7,6 +7,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace StorybrewEditor.Storyboarding
 {
@@ -234,22 +237,47 @@ namespace StorybrewEditor.Storyboarding
             displayableBuckets = null;
         }
 
-        public override void WriteOsb(TextWriter writer, ExportSettings exportSettings, OsbLayer osbLayer, StoryboardTransform transform)
+        public IEnumerable<(StoryboardObject StoryboardObject, StoryboardTransform Transform)> Flatten(StoryboardTransform transform)
         {
             var localTransform = new StoryboardTransform(transform, Origin, Position, Rotation, (float)Scale);
-            foreach (var sbo in storyboardObjects)
-                sbo.WriteOsb(writer, exportSettings, osbLayer, localTransform);
+            foreach (var storyboardObject in storyboardObjects)
+            {
+                if (storyboardObject is EditorStoryboardSegment segment)
+                    foreach (var entry in segment.Flatten(localTransform))
+                        yield return entry;
+
+                yield return (storyboardObject, localTransform);
+            }
         }
 
-        public int CalculateSize(OsbLayer osbLayer)
+        public override void WriteOsb(TextWriter writer, ExportSettings exportSettings, OsbLayer osbLayer, StoryboardTransform transform, CancellationToken token = default)
         {
-            var exportSettings = ExportSettings.Default;
+            var entries = Flatten(transform).ToArray();
+
+            var writers = new StringWriter[entries.Length];
+            Parallel.For(0, entries.Length, new ParallelOptions { CancellationToken = token, }, index =>
+            {
+                var entry = entries[index];
+                var entryWriter = writers[index] = new StringWriter(writer.FormatProvider);
+                entry.StoryboardObject.WriteOsb(entryWriter, exportSettings, osbLayer, entry.Transform, token);
+            });
+
+            foreach (var w in writers)
+                writer.Write(w.ToString());
+        }
+
+        public int CalculateSize(OsbLayer osbLayer, CancellationToken token = default)
+        {
+            var exportSettings = ExportSettings.SizeCalculation;
 
             using (var stream = new ByteCounterStream())
             using (var writer = new StreamWriter(stream, Project.Encoding))
             {
                 foreach (var sbo in storyboardObjects)
-                    sbo.WriteOsb(writer, exportSettings, osbLayer, null);
+                {
+                    token.ThrowIfCancellationRequested();
+                    sbo.WriteOsb(writer, exportSettings, osbLayer, null, token);
+                }
 
                 return (int)stream.Length;
             }
