@@ -246,7 +246,7 @@ namespace StorybrewEditor.Storyboarding
                     foreach (var entry in segment.Flatten(localTransform))
                         yield return entry;
 
-                yield return (storyboardObject, localTransform);
+                else yield return (storyboardObject, localTransform);
             }
         }
 
