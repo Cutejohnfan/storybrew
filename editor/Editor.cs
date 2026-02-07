@@ -17,6 +17,8 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
 using System.Reflection;
 
 namespace StorybrewEditor
@@ -264,6 +266,31 @@ namespace StorybrewEditor
             overlayCamera.VirtualHeight = (int)(height * Math.Max(1024f / width, 768f / height));
             overlayCamera.VirtualWidth = width * overlayCamera.VirtualHeight / height;
             overlay.Size = new Vector2(overlayCamera.VirtualWidth, overlayCamera.VirtualHeight);
+        }
+
+        public string CaptureScreenshot(string projectPath)
+        {
+            int width = Window.Width;
+            int height = Window.Height;
+
+            var format = ImageFormat.Jpeg;
+            var filePath = Path.Combine(projectPath, DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".jpg");
+
+            using (var bitmap = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+            {
+                var data = bitmap.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.WriteOnly, bitmap.PixelFormat);
+                GL.ReadPixels(0, 0, width, height, OpenTK.Graphics.OpenGL.PixelFormat.Bgra, PixelType.UnsignedByte, data.Scan0);
+                bitmap.UnlockBits(data);
+                bitmap.RotateFlip(RotateFlipType.RotateNoneFlipY);
+                bitmap.Save(filePath, format);
+            }
+
+            return filePath;
+        }
+
+        public WidgetManager GetOverlay()
+        {
+            return overlay;
         }
     }
 

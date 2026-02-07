@@ -12,9 +12,12 @@ using StorybrewEditor.UserInterface.Drawables;
 using StorybrewEditor.Util;
 using System;
 using System.Diagnostics;
+using System.Drawing.Imaging;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Collections.Generic;
 
 namespace StorybrewEditor.ScreenLayers
 {
@@ -47,6 +50,7 @@ namespace StorybrewEditor.ScreenLayers
         private Button mapsetFolderButton;
         private Button saveButton;
         private Button exportButton;
+        private Button screenshotButton;
 
         private Button settingsButton;
         private Button effectsButton;
@@ -151,6 +155,14 @@ namespace StorybrewEditor.ScreenLayers
                         AnchorFrom = BoxAlignment.Centre,
                         CanGrow = false,
                     },
+                    screenshotButton = new Button(WidgetManager)
+                    {
+                        StyleName = "icon",
+                        Icon = IconFont.Camera,
+                        Tooltip = "Screenshot",
+                        AnchorFrom = BoxAlignment.Centre,
+                        CanGrow = false,
+                    }
                 },
             });
 
@@ -384,6 +396,12 @@ namespace StorybrewEditor.ScreenLayers
                     exportProjectAll();
                 else exportProject();
             };
+            screenshotButton.OnClick += (sender, e) =>
+            {
+                screenshotButton.Displayed = false;
+                screenshotScreen();
+                screenshotButton.Displayed = true;
+            };
 
             project.OnMapsetPathChanged += project_OnMapsetPathChanged;
             project.OnEffectsContentChanged += project_OnEffectsContentChanged;
@@ -464,6 +482,54 @@ namespace StorybrewEditor.ScreenLayers
             var inputManager = Manager.GetContext<Editor>().InputManager;
             timeline.Scroll(-e.DeltaPrecise * (inputManager.Shift ? 4 : 1));
             return true;
+        }
+
+        public void screenshotScreen()
+        {
+            var hudWidgets = new List<Widget>
+            {
+                bottomLeftLayout,
+                bottomRightLayout,
+                effectConfigUi,
+                effectsList,
+                layersList,
+                settingsMenu,
+                statusLayout,
+                warningsLabel,
+                previewContainer
+            };
+
+            var originalStates = new Dictionary<Widget, bool>();
+            foreach (var widget in hudWidgets)
+            {
+                originalStates[widget] = widget.Displayed;
+                widget.Displayed = false;
+            }
+
+            var editor = Manager.GetContext<Editor>();
+            var overlay = editor.GetOverlay();
+            var overlayWasDisplayed = overlay.Root.Displayed;
+            overlay.Root.Displayed = false;
+
+            var prevUpdateFrameStats = mainStoryboardDrawable.UpdateFrameStats;
+            mainStoryboardDrawable.UpdateFrameStats = false;
+
+            Program.Schedule(() =>
+            {
+                Program.Schedule(() =>
+                {
+                    string output = editor.CaptureScreenshot(project.ProjectFolderPath);
+
+                    foreach (var widget in hudWidgets)
+                        widget.Displayed = originalStates[widget];
+
+                    overlay.Root.Displayed = overlayWasDisplayed;
+
+                    mainStoryboardDrawable.UpdateFrameStats = prevUpdateFrameStats;
+
+                    Manager.ShowMessage($"Screenshot saved to:\n{output}");
+                });
+            });
         }
 
         private void changeMapsetFolder()
