@@ -106,6 +106,7 @@ namespace StorybrewEditor.Storyboarding
 
             reloadTextures();
             reloadAudio();
+            reloadVideo();
 
             ScriptsPath = Path.GetDirectoryName(projectPath);
             if (withCommonScripts)
@@ -158,7 +159,8 @@ namespace StorybrewEditor.Storyboarding
 
         public TextureContainer TextureContainer { get; private set; }
         public AudioSampleContainer AudioContainer { get; private set; }
-
+        public VideoPreview VideoPreview {  get; private set; }
+        public VideoLayer VideoLayer { get; private set; }
         public FrameStats FrameStats { get; private set; } = new FrameStats();
 
         public void TriggerEvents(double startTime, double endTime)
@@ -169,6 +171,8 @@ namespace StorybrewEditor.Storyboarding
         public void Draw(DrawContext drawContext, Camera camera, Box2 bounds, float opacity, bool updateFrameStats)
         {
             effectUpdateQueue.Enabled = allowEffectUpdates && MapsetPathIsValid;
+
+            VideoLayer?.Draw(drawContext, camera, bounds, opacity, DisplayTime, this);
 
             var newFrameStats = updateFrameStats ? new FrameStats() : null;
             LayerManager.Draw(drawContext, camera, bounds, opacity, newFrameStats);
@@ -185,6 +189,15 @@ namespace StorybrewEditor.Storyboarding
         {
             AudioContainer?.Dispose();
             AudioContainer = new AudioSampleContainer(Program.AudioManager, null);
+        }
+
+        private void reloadVideo()
+        {
+            VideoPreview?.Dispose(); ;
+            VideoLayer?.Dispose();
+            VideoPreview = new VideoPreview(ProjectFolderPath);
+            VideoPreview.Enabled = Program.Settings.ShowVideoPreview;
+            VideoLayer = new VideoLayer(VideoPreview);
         }
 
         #endregion
@@ -416,6 +429,8 @@ namespace StorybrewEditor.Storyboarding
                 reloadAudio();
             else if (extension == ".osu")
                 refreshMapset();
+            else if (extension == ".mp4" || extension == ".mov" || extension == ".avi" || extension == ".mov" || extension == ".webm" || extension == ".mkv")
+                reloadVideo();
         }
 
         #endregion
@@ -1014,6 +1029,8 @@ namespace StorybrewEditor.Storyboarding
                     scriptManager.Dispose();
                     TextureContainer.Dispose();
                     AudioContainer.Dispose();
+                    VideoPreview.Dispose();
+                    VideoLayer.Dispose();
                 }
                 assetWatcher = null;
                 MapsetManager = null;
@@ -1021,6 +1038,8 @@ namespace StorybrewEditor.Storyboarding
                 scriptManager = null;
                 TextureContainer = null;
                 AudioContainer = null;
+                VideoLayer = null;
+                VideoPreview = null;
                 IsDisposed = true;
             }
         }

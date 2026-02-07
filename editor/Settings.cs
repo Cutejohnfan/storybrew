@@ -21,6 +21,7 @@ namespace StorybrewEditor
         public readonly Setting<bool> VerboseVsCode = new Setting<bool>(false);
         public readonly Setting<int> EffectThreads = new Setting<int>(0);
         public readonly Setting<string> TimeCopyFormat = new Setting<string>(@"h\:mm\:ss\.ff");
+        public readonly Setting<bool> ShowVideoPreview = new Setting<bool>(true);
 
         private readonly string path;
 

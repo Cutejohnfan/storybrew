@@ -104,13 +104,15 @@ namespace StorybrewEditor.ScreenLayers
 
         public static void ShowOpenProject(this ScreenLayerManager screenLayerManager)
         {
-            if (!Directory.Exists(Project.ProjectsFolder))
-                Directory.CreateDirectory(Project.ProjectsFolder);
+            var projectsFolder = Path.GetFullPath(Project.ProjectsFolder).ToLowerInvariant();
+            if (!Directory.Exists(projectsFolder))
+                Directory.CreateDirectory(projectsFolder);
 
-            screenLayerManager.OpenFilePicker("", "", Project.ProjectsFolder, Project.FileFilter, (projectPath) =>
+            screenLayerManager.OpenFilePicker("", "", projectsFolder, Project.FileFilter, (projectPath) =>
             {
-                if (!PathHelper.FolderContainsPath(Project.ProjectsFolder, projectPath) || 
-                PathHelper.GetRelativePath(Project.ProjectsFolder, projectPath).Count(c => c == '/') != 1)
+                var normalizedPath = Path.GetFullPath(projectPath).ToLowerInvariant();
+                if (!PathHelper.FolderContainsPath(projectsFolder, normalizedPath) ||
+                    PathHelper.GetRelativePath(projectsFolder, normalizedPath).Count(c => c == '/') != 1)
                     screenLayerManager.ShowMessage("Projects must be placed in a folder directly inside the 'projects' folder.");
                 else
                     screenLayerManager.AsyncLoading("Loading project", () =>

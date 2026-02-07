@@ -21,5 +21,7 @@ namespace StorybrewCommon.Storyboarding
 
         public abstract bool Multithreaded { get; set; }
         public abstract CancellationToken CancellationToken { get; }
+
+        public abstract void SetVideo(String path, double startTimeMs);
     }
 }

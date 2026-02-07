@@ -94,6 +94,12 @@ namespace StorybrewEditor.Storyboarding
         public override void AppendLog(string message)
             => log.AppendLine(message);
 
+        public override void SetVideo(string path, double startTimeMs)
+        {
+            var fullPath = Path.GetFullPath(Path.Combine(effect.Project.ProjectFolderPath, path));
+            Program.Schedule(() => effect.Project.VideoPreview?.LoadVideo(fullPath, startTimeMs));
+        }
+
         #region Audio data
 
         private Dictionary<string, FftStream> fftAudioStreams = new Dictionary<string, FftStream>();
