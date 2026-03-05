@@ -1,4 +1,4 @@
-﻿#if DEBUG
+﻿//#if DEBUG
 using StorybrewCommon.Mapset;
 using StorybrewCommon.Storyboarding;
 using StorybrewCommon.Storyboarding.Commands;

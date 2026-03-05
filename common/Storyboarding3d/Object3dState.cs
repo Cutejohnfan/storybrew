@@ -1,4 +1,4 @@
-﻿#if DEBUG
+﻿//#if DEBUG
 using OpenTK;
 using StorybrewCommon.Storyboarding.CommandValues;
 
